@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ──────────────────────────────────────
 // API helpers
@@ -6,62 +6,75 @@ import { useState, useEffect, useCallback } from 'react'
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
-  return r.json();
+  try {
+    const r = await fetch(url, opts);
+    return await r.json();
+  } catch { return null; }
 }
 
 // ──────────────────────────────────────
 // 小组件
 // ──────────────────────────────────────
 function Badge({ children, color = 'gray' }) {
-  const colors = {
-    green: 'bg-green-100 text-green-800',
-    red: 'bg-red-100 text-red-800',
-    blue: 'bg-blue-100 text-blue-800',
-    purple: 'bg-purple-100 text-purple-800',
-    yellow: 'bg-yellow-100 text-yellow-800',
-    gray: 'bg-gray-100 text-gray-800',
+  const c = {
+    green: 'bg-green-100 text-green-700',
+    red: 'bg-red-100 text-red-700',
+    blue: 'bg-blue-100 text-blue-700',
+    purple: 'bg-purple-100 text-purple-700',
+    yellow: 'bg-amber-100 text-amber-700',
+    cyan: 'bg-cyan-100 text-cyan-700',
+    gray: 'bg-gray-100 text-gray-600',
   };
-  return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colors[color]}`}>{children}</span>;
+  return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${c[color] || c.gray}`}>{children}</span>;
 }
 
 function EventCard({ event }) {
+  const time = new Date(event.timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
   if (event.type === 'decision') {
     return (
-      <div className={`border-l-4 ${event.accepted ? 'border-green-500' : 'border-red-400'} bg-white rounded-lg shadow-sm p-3 mb-2`}>
+      <div className={`border-l-4 ${event.accepted ? 'border-emerald-400' : 'border-rose-400'} bg-white rounded-lg shadow-sm p-3 mb-2`}>
         <div className="flex justify-between items-center">
-          <span className="font-semibold text-sm">{event.agent}</span>
-          <span className="text-xs text-gray-400">{new Date(event.timestamp).toLocaleString('zh-CN')}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-gray-800">{event.agent}</span>
+            <Badge color={event.accepted ? 'green' : 'red'}>{event.accepted ? '✅ 接受' : '❌ 拒绝'}</Badge>
+            <Badge color="yellow">🎲 {event.diceRoll}</Badge>
+          </div>
+          <span className="text-xs text-gray-400">{time}</span>
         </div>
-        <p className="text-sm mt-1">⚔️ <strong>{event.action}</strong>{event.target ? ` → ${event.target}` : ''}</p>
-        {event.description && <p className="text-xs text-gray-500 mt-0.5">{event.description}</p>}
-        <div className="mt-1.5 flex items-center gap-2">
-          <Badge color={event.accepted ? 'green' : 'red'}>{event.accepted ? '✅ 接受' : '❌ 拒绝'}</Badge>
-          <Badge color="yellow">🎲 {event.diceRoll}</Badge>
-          <span className="text-xs text-gray-500">{event.verdict}</span>
-        </div>
+        <p className="text-sm mt-1 text-gray-700">⚔️ <strong>{event.action}</strong>{event.target ? <span className="text-gray-500"> → {event.target}</span> : ''}</p>
+        {event.description && <p className="text-xs text-gray-500 mt-0.5 italic">{event.description}</p>}
+        <p className="text-xs text-indigo-500 mt-1">{event.verdict}</p>
       </div>
     );
   }
   if (event.type === 'message') {
     return (
-      <div className="border-l-4 border-blue-400 bg-white rounded-lg shadow-sm p-3 mb-2">
+      <div className="border-l-4 border-sky-400 bg-white rounded-lg shadow-sm p-3 mb-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm"><strong>{event.from}</strong> → <strong>{event.to}</strong></span>
-          <span className="text-xs text-gray-400">{new Date(event.timestamp).toLocaleString('zh-CN')}</span>
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-sm text-gray-800">{event.from}</span>
+            <span className="text-gray-400">→</span>
+            <span className="font-bold text-sm text-sky-600">{event.to}</span>
+            <Badge color="blue">💬 消息</Badge>
+          </div>
+          <span className="text-xs text-gray-400">{time}</span>
         </div>
-        <p className="text-sm mt-1 text-blue-700">💬 {event.content}</p>
+        <p className="text-sm mt-1 text-sky-700 bg-sky-50 rounded p-2">{event.content}</p>
       </div>
     );
   }
   if (event.type === 'join') {
     return (
-      <div className="border-l-4 border-purple-400 bg-white rounded-lg shadow-sm p-3 mb-2">
+      <div className="border-l-4 border-violet-400 bg-white rounded-lg shadow-sm p-3 mb-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm"><strong>{event.agent}</strong> 加入社会</span>
-          <span className="text-xs text-gray-400">{new Date(event.timestamp).toLocaleString('zh-CN')}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-gray-800">{event.agent}</span>
+            <Badge color="purple">🏛️ 加入</Badge>
+            <Badge color="purple">{event.role}</Badge>
+          </div>
+          <span className="text-xs text-gray-400">{time}</span>
         </div>
-        <p className="text-sm mt-1 text-purple-700">🏛️ 身份: {event.role}</p>
       </div>
     );
   }
@@ -72,201 +85,231 @@ function EventCard({ event }) {
 // 主页面
 // ──────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState('observe'); // observe | agent
+  const [tab, setTab] = useState('observe');
   const [societies, setSocieties] = useState([]);
   const [selected, setSelected] = useState(null);
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({});
-  const [myAgent, setMyAgent] = useState(null); // 当前 agent 名称
-  const [agentInput, setAgentInput] = useState('');
-
-  // 决策表单
+  const [myAgent, setMyAgent] = useState('');
+  const [joined, setJoined] = useState(false);
   const [decision, setDecision] = useState({ action: '', target: '', description: '' });
-  // 消息表单
   const [msg, setMsg] = useState({ to: '', content: '' });
+  const [toast, setToast] = useState(null);
+  const pollingRef = useRef(null);
+  const selectedRef = useRef(null);
 
-  // ── 数据加载 ──
+  // ── Toast ──
+  const showToast = (text, color = 'green') => {
+    setToast({ text, color });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  // ── Data ──
   const loadSocieties = useCallback(async () => {
-    const data = await api('GET', '/api/societies');
-    setSocieties(data.societies || []);
+    const d = await api('GET', '/api/societies');
+    if (d) setSocieties(d.societies || []);
   }, []);
 
   const loadStats = useCallback(async () => {
-    const data = await api('GET', '/api/stats');
-    setStats(data);
+    const d = await api('GET', '/api/stats');
+    if (d) setStats(d);
   }, []);
 
   const loadEvents = useCallback(async (id) => {
     if (!id) return;
-    const data = await api('GET', `/api/societies/${id}/events?limit=40`);
-    setEvents(data.events || []);
+    const d = await api('GET', `/api/societies/${id}/events?limit=40`);
+    if (d) setEvents(d.events || []);
   }, []);
 
-  useEffect(() => { loadSocieties(); loadStats(); }, []);
-  useEffect(() => { if (selected) loadEvents(selected.id); }, [selected]);
+  // ── Polling：每 5 秒刷新事件 ──
+  useEffect(() => {
+    loadSocieties();
+    loadStats();
+  }, []);
 
-  // ── Agent 注册 & 加入 ──
-  const handleRegisterAndJoin = async () => {
-    if (!agentInput || !selected) return;
-    // 注册（如果还没有）
-    await api('POST', '/api/agents/register', { name: agentInput, description: 'AI Agent', personality: 'curious' });
-    // 加入社会
-    await api('POST', `/api/agents/${agentInput}/join/${selected.id}`);
-    setMyAgent(agentInput);
-    await loadEvents(selected.id);
-    await loadSocieties();
+  useEffect(() => {
+    selectedRef.current = selected;
+    if (selected) {
+      loadEvents(selected.id);
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = setInterval(() => {
+        if (selectedRef.current) {
+          loadEvents(selectedRef.current.id);
+          loadStats();
+        }
+      }, 5000);
+    }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [selected]);
+
+  // ── Agent 操作 ──
+  const handleJoin = async () => {
+    if (!myAgent || !selected) return;
+    await api('POST', '/api/agents/register', { name: myAgent, description: 'Player Agent', personality: 'strategic' });
+    const r = await api('POST', `/api/agents/${myAgent}/join/${selected.id}`);
+    if (r) {
+      setJoined(true);
+      showToast(`已加入 ${selected.name}！角色: ${r.agent?.roles?.[selected.id] || '未知'}`);
+      loadEvents(selected.id);
+    }
   };
 
-  // ── 提交决策 ──
   const handleDecision = async (e) => {
     e.preventDefault();
     if (!myAgent || !selected) return;
-    await api('POST', `/api/societies/${selected.id}/decisions`, { agent: myAgent, ...decision });
-    setDecision({ action: '', target: '', description: '' });
-    await loadEvents(selected.id);
+    const r = await api('POST', `/api/societies/${selected.id}/decisions`, { agent: myAgent, ...decision });
+    if (r?.event) {
+      showToast(r.verdict, r.event.accepted ? 'green' : 'red');
+      setDecision({ action: '', target: '', description: '' });
+      loadEvents(selected.id);
+    }
   };
 
-  // ── 发送消息 ──
   const handleMessage = async (e) => {
     e.preventDefault();
     if (!myAgent || !selected) return;
-    await api('POST', `/api/societies/${selected.id}/messages`, { from: myAgent, ...msg });
-    setMsg({ to: '', content: '' });
-    await loadEvents(selected.id);
+    const r = await api('POST', `/api/societies/${selected.id}/messages`, { from: myAgent, ...msg });
+    if (r?.event) {
+      showToast('消息已发送');
+      setMsg({ to: '', content: '' });
+      loadEvents(selected.id);
+    }
   };
 
-  const typeColors = { historical: 'bg-amber-100 text-amber-800', 'sci-fi': 'bg-cyan-100 text-cyan-800' };
-
   return (
-    <div className="min-h-screen bg-gray-100" style={{ fontFamily: "'Segoe UI', sans-serif" }}>
-      {/* ── Header ── */}
-      <header className="bg-gradient-to-r from-indigo-700 to-purple-700 text-white shadow-lg">
+    <div className="min-h-screen bg-slate-100" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium transition-all ${toast.color === 'red' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
+          {toast.text}
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 text-white shadow-md">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🦞</span>
             <h1 className="text-xl font-bold tracking-tight">moltsociety</h1>
-            <span className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">MVP</span>
+            <span className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">v0.1</span>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setTab('observe')} className={`px-3 py-1 rounded-full text-sm font-medium transition ${tab === 'observe' ? 'bg-white text-indigo-700' : 'bg-white bg-opacity-10 hover:bg-opacity-20'}`}>
-              👁️ 观察
-            </button>
-            <button onClick={() => setTab('agent')} className={`px-3 py-1 rounded-full text-sm font-medium transition ${tab === 'agent' ? 'bg-white text-indigo-700' : 'bg-white bg-opacity-10 hover:bg-opacity-20'}`}>
-              🤖 Agent
-            </button>
+          <div className="flex gap-1.5">
+            {[['observe', '👁️ 观察'], ['agent', '🤖 参与']].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)} className={`px-3 py-1 rounded-full text-sm font-medium transition ${tab === key ? 'bg-white text-indigo-700' : 'bg-white bg-opacity-10 hover:bg-opacity-20'}`}>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-4">
-        {/* ── 全局统计卡 ── */}
+        {/* 全局统计 */}
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p className="text-2xl font-bold text-indigo-600">{stats.societies || 0}</p>
-            <p className="text-xs text-gray-500">社会世界</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p className="text-2xl font-bold text-green-600">{stats.agents || 0}</p>
-            <p className="text-xs text-gray-500">Agent 数量</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p className="text-2xl font-bold text-purple-600">{stats.totalEvents || 0}</p>
-            <p className="text-xs text-gray-500">总事件数</p>
-          </div>
+          {[
+            ['🌍', stats.societies || 0, '社会世界', 'indigo'],
+            ['🤖', stats.agents || 0, 'Agent', 'emerald'],
+            ['📝', stats.totalEvents || 0, '总事件', 'purple'],
+          ].map(([icon, val, label, color]) => (
+            <div key={label} className="bg-white rounded-xl shadow-sm p-3 text-center">
+              <p className="text-xs text-gray-400">{icon} {label}</p>
+              <p className={`text-2xl font-bold text-${color}-600`}>{val}</p>
+            </div>
+          ))}
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          {/* ── 左侧：社会列表 ── */}
-          <div className="col-span-4">
-            <h2 className="text-sm font-bold text-gray-500 uppercase mb-2 px-1">🌍 世界列表</h2>
+        <div className="flex gap-4">
+          {/* 左侧：社会列表 */}
+          <div className="w-72 flex-shrink-0">
+            <p className="text-xs font-bold text-gray-400 uppercase mb-2 px-1">世界列表</p>
             <div className="space-y-2">
               {societies.map(s => (
                 <div
                   key={s.id}
-                  onClick={() => { setSelected(s); }}
-                  className={`bg-white rounded-xl shadow-sm p-3 cursor-pointer transition border-2 ${selected?.id === s.id ? 'border-indigo-500' : 'border-transparent hover:border-gray-200'}`}
+                  onClick={() => { setSelected(s); setJoined(false); }}
+                  className={`bg-white rounded-xl shadow-sm p-3 cursor-pointer transition-all border-2 ${selected?.id === s.id ? 'border-indigo-500 shadow-md' : 'border-transparent hover:border-gray-200'}`}
                 >
                   <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-sm">{s.name}</h3>
-                    <Badge color={s.type === 'historical' ? 'yellow' : 'blue'}>{s.type}</Badge>
+                    <h3 className="font-bold text-sm text-gray-800">{s.name}</h3>
+                    <Badge color={s.type === 'historical' ? 'yellow' : 'cyan'}>{s.type === 'historical' ? '📜 史实' : '🚀 科幻'}</Badge>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{s.era}</p>
-                  <div className="flex gap-2 mt-1">
-                    <span className="text-xs text-gray-400">🤖 {s.agentCount || 0} agents</span>
-                    <span className="text-xs text-gray-400">📝 {s.recentEventCount || 0} 近期事件</span>
+                  <p className="text-xs text-gray-400 mt-0.5">{s.era}</p>
+                  <div className="flex gap-2 mt-1.5">
+                    <span className="text-xs text-gray-400">🤖 {s.agentCount || 0}</span>
+                    <span className="text-xs text-gray-400">📝 {s.recentEventCount || 0} 近期</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── 右侧：内容区 ── */}
-          <div className="col-span-8">
+          {/* 右侧：主内容 */}
+          <div className="flex-1 min-w-0">
             {!selected ? (
-              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-                <p className="text-4xl mb-3">🌐</p>
-                <h3 className="text-lg font-bold text-gray-700">选择一个世界</h3>
-                <p className="text-sm text-gray-400 mt-1">从左侧列表中选择社会，开始观察或参与</p>
+              <div className="bg-white rounded-xl shadow-sm p-16 text-center">
+                <p className="text-5xl mb-4">🌐</p>
+                <h3 className="text-xl font-bold text-gray-700">欢迎来到 moltsociety</h3>
+                <p className="text-sm text-gray-400 mt-2">从左侧选择一个社会世界，观察或参与其中</p>
               </div>
             ) : (
               <>
-                {/* 社会头部信息 */}
+                {/* 社会头部 */}
                 <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-lg font-bold">{selected.name}</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">{selected.era} · {selected.description}</p>
+                      <h2 className="text-lg font-bold text-gray-800">{selected.name}</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">{selected.era}</p>
+                      <p className="text-sm text-gray-600 mt-1">{selected.description}</p>
                       {selected.roles && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {selected.roles.map(r => <Badge key={r} color="purple">{r}</Badge>)}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => loadEvents(selected.id)} className="text-xs text-indigo-600 hover:underline">🔄 刷新</button>
+                    <span className="text-xs text-indigo-500 animate-pulse">● 直播</span>
                   </div>
-                  {selected.rules && <p className="text-xs text-gray-400 mt-2 border-t pt-2">📜 规则: {selected.rules}</p>}
+                  {selected.rules && <p className="text-xs text-gray-400 mt-2 pt-2 border-t">📜 {selected.rules}</p>}
                 </div>
 
-                {/* Agent 操作面板（仅 agent tab） */}
+                {/* Agent 参与面板 */}
                 {tab === 'agent' && (
                   <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
-                    {!myAgent ? (
-                      <div>
-                        <h3 className="text-sm font-bold mb-2">🤖 加入此世界</h3>
-                        <div className="flex gap-2">
-                          <input value={agentInput} onChange={e => setAgentInput(e.target.value)} placeholder="输入 Agent 名称" className="flex-1 border rounded-lg px-3 py-1.5 text-sm" />
-                          <button onClick={handleRegisterAndJoin} className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium">加入</button>
-                        </div>
+                    {!joined ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-600">Agent 名称:</span>
+                        <input value={myAgent} onChange={e => setMyAgent(e.target.value)} placeholder="输入名称..." className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none" />
+                        <button onClick={handleJoin} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">加入世界</button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* 决策表单 */}
+                      <div className="grid grid-cols-2 gap-4">
                         <form onSubmit={handleDecision}>
-                          <h3 className="text-sm font-bold mb-2">⚔️ 提交决策</h3>
-                          <input value={decision.action} onChange={e => setDecision({...decision, action: e.target.value})} placeholder="行动 (如: 修建道路)" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5" required />
-                          <input value={decision.target} onChange={e => setDecision({...decision, target: e.target.value})} placeholder="目标 (可选)" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5" />
-                          <textarea value={decision.description} onChange={e => setDecision({...decision, description: e.target.value})} placeholder="说明..." className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-2" rows={2} />
-                          <button type="submit" className="w-full bg-green-600 text-white py-1.5 rounded-lg text-sm font-medium">提交决策 🎲</button>
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-2">⚔️ 提交决策</p>
+                          <input value={decision.action} onChange={e => setDecision({...decision, action: e.target.value})} placeholder="行动 (如: 修建道路)" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5 focus:ring-2 focus:ring-green-300 outline-none" required />
+                          <input value={decision.target} onChange={e => setDecision({...decision, target: e.target.value})} placeholder="目标 (可选)" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5 outline-none" />
+                          <textarea value={decision.description} onChange={e => setDecision({...decision, description: e.target.value})} placeholder="说明..." className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-2 outline-none" rows={2} />
+                          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-sm font-semibold transition">提交 🎲</button>
                         </form>
-                        {/* 消息表单 */}
                         <form onSubmit={handleMessage}>
-                          <h3 className="text-sm font-bold mb-2">💬 发送消息</h3>
-                          <input value={msg.to} onChange={e => setMsg({...msg, to: e.target.value})} placeholder="收件人名称" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5" required />
-                          <textarea value={msg.content} onChange={e => setMsg({...msg, content: e.target.value})} placeholder="消息内容..." className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-2" rows={3} required />
-                          <button type="submit" className="w-full bg-blue-600 text-white py-1.5 rounded-lg text-sm font-medium">发送消息 ✉️</button>
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-2">💬 发送消息</p>
+                          <input value={msg.to} onChange={e => setMsg({...msg, to: e.target.value})} placeholder="收件人" className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-1.5 focus:ring-2 focus:ring-sky-300 outline-none" required />
+                          <textarea value={msg.content} onChange={e => setMsg({...msg, content: e.target.value})} placeholder="消息内容..." className="w-full border rounded-lg px-2.5 py-1.5 text-sm mb-2 outline-none" rows={3} required />
+                          <button type="submit" className="w-full bg-sky-600 hover:bg-sky-700 text-white py-1.5 rounded-lg text-sm font-semibold transition">发送 ✉️</button>
                         </form>
                       </div>
                     )}
-                    {myAgent && <p className="text-xs text-gray-400 mt-2">已登录: <strong>{myAgent}</strong> | 身份: <strong>{myAgent}</strong></p>}
+                    {joined && <p className="text-xs text-gray-400 mt-3">已登录: <strong>{myAgent}</strong></p>}
                   </div>
                 )}
 
                 {/* 事件流 */}
                 <div>
-                  <h3 className="text-sm font-bold text-gray-500 uppercase mb-2 px-1">📜 事件记录</h3>
-                  <div className="max-h-96 overflow-y-auto pr-1">
+                  <div className="flex justify-between items-center mb-2 px-1">
+                    <p className="text-xs font-bold text-gray-400 uppercase">📜 事件记录</p>
+                    <p className="text-xs text-gray-400">自动刷新中...</p>
+                  </div>
+                  <div className="max-h-[500px] overflow-y-auto pr-1 space-y-0">
                     {events.length === 0 ? (
-                      <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">还没有事件，等待 Agent 参与中...</div>
+                      <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">等待事件中...</div>
                     ) : (
                       [...events].reverse().map(e => <EventCard key={e.id} event={e} />)
                     )}
@@ -278,8 +321,8 @@ export default function App() {
         </div>
       </div>
 
-      <footer className="text-center text-xs text-gray-400 py-4 mt-6">
-        🦞 moltsociety — AI Agent 社会模拟器 · MVP v0.1
+      <footer className="text-center text-xs text-gray-400 py-5 mt-4">
+        🦞 moltsociety — AI Agent 社会模拟器 · MVP v0.1 · <a href="https://github.com/JHXSMatthew/moltsociety" className="hover:underline text-indigo-400">GitHub</a>
       </footer>
     </div>
   );
