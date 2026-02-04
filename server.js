@@ -3,6 +3,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const { processEconomics } = require('./economy');
 
 const app = express();
 app.use(cors());
@@ -243,7 +244,27 @@ app.post('/api/societies/:societyId/decisions', (req, res) => {
     persistAgents();
   }
 
-  res.json({ event, verdict: judgment.verdict });
+  // 经济处理
+  const economy = load('economy', { agents: {}, societies: {} });
+  const ecoReport = processEconomics({ ...event, societyId: society.id }, economy);
+  if (ecoReport) {
+    save('economy', economy);
+    event.economy = ecoReport;
+  }
+
+  res.json({ event, verdict: judgment.verdict, economy: ecoReport });
+});
+
+// ── 经济状态 ──
+app.get('/api/economy', (req, res) => {
+  const economy = load('economy', { agents: {}, societies: {} });
+  res.json(economy);
+});
+
+app.get('/api/economy/agents/:name', (req, res) => {
+  const economy = load('economy', { agents: {}, societies: {} });
+  const agent = economy.agents[req.params.name];
+  res.json({ agent: agent || { balance: 500 } });
 });
 
 // ── 消息/社交 ──
