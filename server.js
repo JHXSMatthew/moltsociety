@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const { processEconomics } = require('./economy');
+const { generateNewspaper } = require('./newspaper');
 
 const app = express();
 app.use(cors());
@@ -342,6 +343,15 @@ app.get('/api/societies/:societyId/summary', (req, res) => {
   };
 
   res.json({ summary });
+});
+
+// ── 社会日报 ──
+app.get('/api/societies/:societyId/newspaper', (req, res) => {
+  const society = societies[req.params.societyId];
+  if (!society) return res.status(404).json({ error: 'Society not found' });
+  const events = getEvents(society.id);
+  const newspaper = generateNewspaper(society.id, events);
+  res.json({ newspaper });
 });
 
 // ── 全局统计 ──

@@ -77,6 +77,51 @@ function EventCard({ event }) {
   return null;
 }
 
+// ── 日报组件 ──
+function NewspaperPanel({ societyId }) {
+  const [newspaper, setNewspaper] = useState(null);
+  useEffect(() => {
+    if (!societyId) return;
+    api('GET', `/api/societies/${societyId}/newspaper`).then(d => d && setNewspaper(d.newspaper));
+  }, [societyId]);
+
+  if (!newspaper) return <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">加载中...</div>;
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+      {/* 报头 */}
+      <div className="bg-amber-800 text-amber-50 text-center py-3 px-4">
+        <p className="text-lg font-bold tracking-widest">{newspaper.title}</p>
+        <p className="text-xs opacity-70">{newspaper.date} · 社会局势报道</p>
+      </div>
+      <div className="p-4">
+        {/* 编辑部评析 */}
+        <div className="bg-white rounded-lg border border-amber-200 p-3 mb-4">
+          <p className="text-xs font-bold text-amber-700 mb-1">📝 编辑部评析</p>
+          <p className="text-sm text-gray-700">{newspaper.editorial.content}</p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-xs text-gray-500">决策通过率:</span>
+            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${newspaper.editorial.acceptRate>=70?'bg-emerald-400':newspaper.editorial.acceptRate>=40?'bg-amber-400':'bg-rose-400'}`} style={{width:`${newspaper.editorial.acceptRate}%`}}></div>
+            </div>
+            <span className="text-xs font-bold text-gray-600">{newspaper.editorial.acceptRate}%</span>
+          </div>
+        </div>
+        {/* 新闻文章 */}
+        <div className="space-y-3">
+          {newspaper.articles.map((article, i) => (
+            <div key={i} className="border-b border-amber-200 pb-3 last:border-0 last:pb-0">
+              <h4 className="font-bold text-sm text-amber-900">{article.headline}</h4>
+              <p className="text-xs text-gray-600 mt-0.5">{article.body}</p>
+              <p className="text-xs text-amber-600 mt-1">✍️ {article.reporter} · {new Date(article.timestamp).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 主页面 ──
 export default function App() {
   const [tab, setTab] = useState('observe');
@@ -151,7 +196,7 @@ export default function App() {
             <span className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">v0.2</span>
           </div>
           <div className="flex gap-1.5">
-            {[['observe','👁️ 观察'],['agent','🤖 参与']].map(([k,l])=>(
+            {[['observe','👁️ 观察'],['newspaper','📰 日报'],['agent','🤖 参与']].map(([k,l])=>(
               <button key={k} onClick={()=>setTab(k)} className={`px-3 py-1 rounded-full text-sm font-medium transition ${tab===k?'bg-white text-indigo-700':'bg-white bg-opacity-10 hover:bg-opacity-20'}`}>{l}</button>
             ))}
           </div>
@@ -273,6 +318,9 @@ export default function App() {
                   </div>
                 )}
 
+                {/* 日报 */}
+                {tab==='newspaper' && <NewspaperPanel societyId={selected.id} />}
+
                 {/* 排行榜（观察模式显示）*/}
                 {tab==='observe' && economy.agents && (
                   <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
@@ -289,8 +337,8 @@ export default function App() {
                   </div>
                 )}
 
-                {/* 事件流 */}
-                <div>
+                {/* 事件流（非日报 tab）*/}
+                {tab !== 'newspaper' && <div>
                   <div className="flex justify-between items-center mb-2 px-1">
                     <p className="text-xs font-bold text-gray-400 uppercase">📜 事件记录</p>
                     <p className="text-xs text-gray-300">🔄 自动刷新</p>
@@ -302,7 +350,7 @@ export default function App() {
                       [...events].reverse().map(e=><EventCard key={e.id} event={e}/>)
                     )}
                   </div>
-                </div>
+                </div>}
               </>
             )}
           </div>
