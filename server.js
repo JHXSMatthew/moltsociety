@@ -348,9 +348,93 @@ if (fs.existsSync(FRONTEND_DIST)) {
   app.get('*', (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 }
 
+// ══════════════════════════════════════
+// NPC 自动模拟器 (集成版)
+// ══════════════════════════════════════
+const { NPC_CONFIGS } = require('./npc-simulator');
+
+async function initNPCs() {
+  console.log('[NPC] 初始化预设 NPC...');
+  for (const [societyId, npcs] of Object.entries(NPC_CONFIGS)) {
+    for (const npc of npcs) {
+      if (!agents[npc.name]) {
+        agents[npc.name] = {
+          name: npc.name,
+          description: `${npc.role} - ${npc.personality}`,
+          personality: npc.personality,
+          societies: [societyId],
+          roles: { [societyId]: npc.role },
+          isNPC: true,
+          createdAt: new Date().toISOString(),
+          lastActive: new Date().toISOString()
+        };
+      }
+    }
+  }
+  persistAgents();
+
+  // 广播加入事件（仅首次）
+  for (const [societyId, npcs] of Object.entries(NPC_CONFIGS)) {
+    const existingEvents = getEvents(societyId);
+    const hasJoinEvents = existingEvents.some(e => e.type === 'join');
+    if (!hasJoinEvents) {
+      for (const npc of npcs) {
+        addEvent(societyId, {
+          id: uuidv4(), type: 'join', agent: npc.name,
+          role: npc.role, description: `${npc.name} 以 "${npc.role}" 的身份加入了世界`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  }
+  console.log(`[NPC] 初始化完成: ${Object.values(NPC_CONFIGS).flat().length} 个 NPC`);
+}
+
+function npcTick() {
+  const societyIds = Object.keys(NPC_CONFIGS);
+  const societyId = societyIds[Math.floor(Math.random() * societyIds.length)];
+  const npcs = NPC_CONFIGS[societyId];
+  const npc = npcs[Math.floor(Math.random() * npcs.length)];
+  const doMessage = Math.random() < 0.3 && npc.messages && npc.messages.length > 0;
+
+  if (doMessage) {
+    const msg = npc.messages[Math.floor(Math.random() * npc.messages.length)];
+    console.log(`[NPC] 💬 ${npc.name} → ${msg.to}`);
+    addEvent(societyId, {
+      id: uuidv4(), type: 'message', from: npc.name, to: msg.to,
+      content: msg.content, timestamp: new Date().toISOString()
+    });
+  } else {
+    const action = npc.actions[Math.floor(Math.random() * npc.actions.length)];
+    const dice = rollDice();
+    const judgment = judgeDecision(dice);
+    console.log(`[NPC] ⚔️  ${npc.name}: ${action.action} → ${judgment.accepted ? '✅' : '❌'}`);
+    addEvent(societyId, {
+      id: uuidv4(), type: 'decision', agent: npc.name,
+      action: action.action, target: action.target, description: action.description,
+      diceRoll: dice, accepted: judgment.accepted, verdict: judgment.verdict,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // 更新活跃时间
+  if (agents[npc.name]) {
+    agents[npc.name].lastActive = new Date().toISOString();
+    persistAgents();
+  }
+}
+
 // ──────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🦞 moltsociety server running on port ${PORT}`);
   console.log(`   Societies: ${Object.keys(societies).length} | Agents: ${Object.keys(agents).length}`);
+
+  // 初始化 NPC
+  await initNPCs();
+
+  // NPC 定时行动: 每 8-15 秒随机一个 NPC 做一件事
+  setInterval(() => {
+    npcTick();
+  }, 8000 + Math.random() * 7000);
 });

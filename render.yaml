@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: moltsociety
+    env: node
+    runtime: node-20
+    buildCommand: npm install && cd frontend && npm install && npm run build && cd ..
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        scope: wd
+        value: 10000
